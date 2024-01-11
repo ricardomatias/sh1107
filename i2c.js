@@ -1,11 +1,12 @@
+// @ts-nocheck
 const { BufferedGraphicsContext } = require("graphics");
 
 /**
- * SSD1306 class
+ * SH1107 class
  */
-class SSD1306 {
+class SH1107 {
   /**
-   * Setup SSD1306
+   * Setup SH1107
    * @param {I2C} i2c
    * @param {Object} options
    *   .width {number=128}
@@ -22,7 +23,7 @@ class SSD1306 {
         width: 128,
         height: 64,
         rst: -1,
-        address: 0x3c, // 0x3C for 32px height, 0x3D for others
+        address: 0x3C, // 0x3C for 32px height, 0x3D for others
         extVcc: false,
         rotation: 0,
       },
@@ -38,39 +39,30 @@ class SSD1306 {
     if (this.rst > -1) pinMode(this.rst, OUTPUT);
     this.reset();
     var initCmds = new Uint8Array([
-      0xae, // 0 disp off
-      0xd5, // 1 clk div
-      0x80, // 2 suggested ratio
-      0xa8,
-      this.height - 1, // 3 set multiplex, height-1
-      0xd3,
-      0x00, // 5 display offset (no-offset)
-      0x40, // 7 start line (line #0)
-      0x8d,
-      this.extVcc ? 0x10 : 0x14, // 8 charge pump
-      0x20,
-      0x00, // 10 memory mode
-      0xa1, // 12 seg remap 1
-      0xc8, // 13 comscandec
-      0xda,
-      this.height === 64 ? 0x12 : 0x02, // 14 set compins, height==64 ? 0x12:0x02,
-      0x81,
-      this.extVcc ? 0x9f : 0xcf, // 16 set contrast
-      0xd9,
-      this.extVcc ? 0x22 : 0xf1, // 18 set precharge
-      0xdb,
-      0x40, // 20 set vcom detect
-      0xa4, // 22 display all on
-      0xa6, // 23 display normal (non-inverted)
-      0x2e, // 24 deactivate scroll
-      0xaf, // 25 disp on
+      0xAE, 0x00,  // display off, sleep mode
+      0xDC, 0x01, 0x00,  // set display start line 0
+      0x81, 0x01, 0x4F,  // contrast setting = 0x4f
+      0x20, 0x00,  // vertical (column) addressing mode (POR=0x20)
+      0xA0, 0x00,  // segment remap = 1 (POR=0, down rotation)
+      0xC0, 0x00,  // common output scan direction = 0 (0 to n-1 (POR=0))
+      0xA8, 0x01, 0x7F,  // multiplex ratio = 128 (POR=0x7F)
+      0xD3, 0x01, 0x60,  // set display offset mode = 0x60
+      0xD5, 0x01, 0x51,  // divide ratio/oscillator: divide by 2, fOsc (POR)
+      0xD9, 0x01, 0x22,  // pre-charge/dis-charge period mode: 2 DCLKs/2 DCLKs (POR)
+      0xDB, 0x01, 0x35,  // VCOM deselect level = 0.770 (POR)
+      0xB0, 0x00,  // set page address = 0 (POR)
+      0xA4, 0x00,  // entire display off, retain RAM, normal status (POR)
+      0xA6, 0x00,  // normal (not reversed) display
+      0xAF, 0x00   // DISPLAY_ON
     ]);
     this.sendCommands(initCmds);
-    delay(50);
+    delay(200);
   }
 
   sendCommands(cmds) {
-    cmds.forEach((c) => this.i2c.write(new Uint8Array([0, c]), this.address));
+    cmds.forEach((c) => {
+      this.i2c.write(new Uint8Array([0, c]), this.address);
+    });
   }
 
   /**
@@ -97,11 +89,14 @@ class SSD1306 {
         rotation: this.rotation,
         bpp: 1,
         display: (buffer) => {
+          // lower column command = 0x00 - 0x0F
+          // upper column command = 0x10 - 0x17
+          // set page address = 0xB0 - 0xBF(16 pages)
           var cmds = new Uint8Array([
-            0x22, // pages
+            0xB0, // pages
             0,
             (this.height >> 3) - 1,
-            0x21, // columns
+            0x00, // columns
             0,
             this.width - 1,
           ]);
@@ -123,14 +118,14 @@ class SSD1306 {
    * Turn on
    */
   on() {
-    this.i2c.write(new Uint8Array([0, 0xaf]), this.address);
+    this.i2c.write(new Uint8Array([0, 0xAF]), this.address);
   }
 
   /**
    * Turn off
    */
   off() {
-    this.i2c.write(new Uint8Array([0, 0xae]), this.address);
+    this.i2c.write(new Uint8Array([0, 0xAE]), this.address);
   }
 
   /**
@@ -141,4 +136,4 @@ class SSD1306 {
   }
 }
 
-exports.SSD1306 = SSD1306;
+exports.SH1107 = SH1107;
